@@ -30,7 +30,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         containerEl.addClass("hud-settings-container");
 
         new Setting(containerEl)
-            .setName("⚡ HUD WIDGET BLOCKS SETTINGS")
+            .setName("General")
             .setHeading();
 
         // GENERAL SETTINGS
@@ -48,7 +48,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
 
         // WIDGET MANAGEMENT SECTION
         new Setting(containerEl)
-            .setName("📦 WIDGET MANAGER")
+            .setName("Widgets")
             .setHeading();
 
         const controlsRow = containerEl.createDiv({ cls: "hud-settings-controls" });
