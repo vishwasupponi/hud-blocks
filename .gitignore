@@ -1,0 +1,26 @@
+node_modules/
+package-lock.json
+package-lock.json.backup
+main.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+hud-blocks/
+Obsidian Vault/
+.obsidian/
+.trash/
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.log
+scratch/

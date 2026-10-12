@@ -1,0 +1,66 @@
+[
+  {
+    "id": "quick-actions",
+    "aliases": ["1"],
+    "name": "Quick Actions",
+    "description": "Configurable glowing action buttons with custom colors, drag-and-drop reordering, and live command/QuickAdd autocomplete.",
+    "version": "1.0.0",
+    "file": "widgets/01 - Quick Actions.js"
+  },
+  {
+    "id": "live-session-tracker",
+    "aliases": ["2"],
+    "name": "Live Session Tracker",
+    "description": "Tactical session terminal with matrix stream canvas, animated equalizer, recording status pulse, and live duration counter.",
+    "version": "1.0.0",
+    "file": "widgets/02 - Live Session Tracker.js"
+  },
+  {
+    "id": "vault-navigator",
+    "aliases": ["3"],
+    "name": "Vault Navigator",
+    "description": "Cyberpunk quick navigation drawer and cards with manual note picker, recent files scanner, and YAML filter chips.",
+    "version": "1.0.0",
+    "file": "widgets/03 - Vault Navigator.js"
+  },
+  {
+    "id": "activity-heatmap",
+    "aliases": ["4"],
+    "name": "Activity Heatmap",
+    "description": "Vault-wide activity heatmap grid with stealth/matrix/cyan/amber/crimson themes, custom color pickers, and folder exclusion filters.",
+    "version": "1.0.0",
+    "file": "widgets/04 - Activity Heatmap.js"
+  },
+  {
+    "id": "vault-stats",
+    "aliases": ["5"],
+    "name": "Vault Stats",
+    "description": "Interactive SVG radar donut chart with dual counter-rotating rings, sonar sweep animation, category breakdown, and recent files list.",
+    "version": "1.0.0",
+    "file": "widgets/05 - Vault Stats.js"
+  },
+  {
+    "id": "metrics-dashboard",
+    "aliases": ["6"],
+    "name": "Metrics Dashboard",
+    "description": "High-density command center with 360px metric cards panel, weekly distribution histogram, and interactive telemetry line graph.",
+    "version": "1.0.0",
+    "file": "widgets/06 - Metrics Dashboard.js"
+  },
+  {
+    "id": "activity-timeline",
+    "aliases": ["7"],
+    "name": "Activity Timeline",
+    "description": "Spaceship telemetry dashboard featuring dual laser sweepers, live data ticker, stepped line trace, and interactive hover readout box.",
+    "version": "1.0.0",
+    "file": "widgets/07 - Activity Timeline.js"
+  },
+  {
+    "id": "completion-trends",
+    "aliases": ["8"],
+    "name": "Completion Trends",
+    "description": "Neon rose-glow polyline chart for completion and milestone tracking with yearly/monthly resolution and multi-year filter dropdown.",
+    "version": "1.0.0",
+    "file": "widgets/08 - Completion Trends.js"
+  }
+]

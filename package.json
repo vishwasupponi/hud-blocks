@@ -1,0 +1,30 @@
+{
+  "name": "hud-blocks",
+  "version": "1.0.0",
+  "description": "Modular and customisable sci-fi HUD widgets and dashboards for your notes.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "hud",
+    "dashboard",
+    "widgets"
+  ],
+  "author": "Vishwas Upponi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vishwasupponi/hud-blocks"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.10.9",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.16.5",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3"
+  }
+}
