@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, SettingDefinitionItem } from "obsidian";
 import type HUDBlocksPlugin from "./main";
 import { WidgetEntry } from "./types";
 
@@ -14,6 +14,10 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         super(app, plugin);
     }
 
+    override getSettingDefinitions(): SettingDefinitionItem[] {
+        return [];
+    }
+
     private async refreshMissingWidgets() {
         this.missingWidgets.clear();
         for (const w of this.localCatalog) {
@@ -25,6 +29,10 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
     }
 
     display(): void {
+        this.renderTab();
+    }
+
+    private renderTab(): void {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass("hud-settings-container");
@@ -67,7 +75,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
     private async checkForUpdates() {
         this.isChecking = true;
         this.statusText = "Contacting GitHub...";
-        this.display();
+        this.renderTab();
 
         try {
             this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
@@ -95,7 +103,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             new Notice(`⚠️ HUD Blocks update check failed. Check console for details.`);
         } finally {
             this.isChecking = false;
-            this.display();
+            this.renderTab();
         }
     }
 
@@ -244,7 +252,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
 
     private async updateSingleWidget(local: WidgetEntry, remote: WidgetEntry) {
         this.updatingWidgets.add(local.id);
-        this.display();
+        this.renderTab();
 
         try {
             await this.plugin.catalogManager.updateWidget(
@@ -261,7 +269,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             new Notice(`❌ Failed to update "${local.name}". Check console.`);
         } finally {
             this.updatingWidgets.delete(local.id);
-            this.display();
+            this.renderTab();
         }
     }
 
@@ -280,7 +288,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         for (const remote of outdated) {
             const local = this.localCatalog.find(l => l.id === remote.id) || remote;
             this.updatingWidgets.add(remote.id);
-            this.display();
+            this.renderTab();
 
             try {
                 await this.plugin.catalogManager.updateWidget(
@@ -299,6 +307,6 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
         await this.refreshMissingWidgets();
         new Notice(`✓ HUD Blocks: All widgets updated successfully!`);
-        this.display();
+        this.renderTab();
     }
 }
