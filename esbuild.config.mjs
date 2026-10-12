@@ -59,9 +59,6 @@ function syncReleaseFolder() {
         if (fs.existsSync("styles.css")) {
             fs.copyFileSync("styles.css", path.join(releaseDir, "styles.css"));
         }
-        if (fs.existsSync("catalog.json")) {
-            fs.copyFileSync("catalog.json", path.join(releaseDir, "catalog.json"));
-        }
     }
 }
 
