@@ -47,12 +47,10 @@ export default class HUDBlocksPlugin extends Plugin {
             });
         }
 
-        // Auto-check updates on startup if enabled
-        if (this.settings.autoCheckUpdates) {
-            this.app.workspace.onLayoutReady(() => {
-                this.quietCheckUpdates();
-            });
-        }
+        // Ensure local widget files exist and optionally check updates on startup
+        this.app.workspace.onLayoutReady(() => {
+            this.quietCheckUpdates();
+        });
     }
 
     async loadSettings() {
@@ -66,6 +64,21 @@ export default class HUDBlocksPlugin extends Plugin {
     private async quietCheckUpdates() {
         try {
             const local = await this.catalogManager.getLocalCatalog();
+
+            // Automatically download any missing widget .js files (e.g. fresh install from Community Plugins)
+            for (const w of local) {
+                const exists = await this.catalogManager.hasWidgetFile(w);
+                if (!exists) {
+                    try {
+                        await this.catalogManager.updateWidget(w, w, this.settings.githubRepo, this.settings.branch);
+                    } catch (dlErr) {
+                        // Ignore individual background download errors if offline
+                    }
+                }
+            }
+
+            if (!this.settings.autoCheckUpdates) return;
+
             const remote = await this.catalogManager.getRemoteCatalog(
                 this.settings.githubRepo,
                 this.settings.branch
@@ -73,7 +86,8 @@ export default class HUDBlocksPlugin extends Plugin {
             let updateCount = 0;
             for (const r of remote) {
                 const l = local.find(loc => loc.id === r.id);
-                if (!l || this.isVersionGreater(r.version, l.version)) {
+                const exists = await this.catalogManager.hasWidgetFile(r);
+                if (!l || !exists || this.isVersionGreater(r.version, l.version)) {
                     updateCount++;
                 }
             }
@@ -141,23 +155,29 @@ export default class HUDBlocksPlugin extends Plugin {
         try {
             code = await this.catalogManager.getWidgetCode(entry);
         } catch (e) {
-            const errDiv = el.createDiv({ cls: "hud-error-card" });
-            errDiv.createSpan({ text: `⚠️ HUD Block: Widget file '${entry.file}' is not installed locally. ` });
-            const dlBtn = errDiv.createEl("button", { text: "Download from GitHub", cls: "mod-cta" });
-            dlBtn.onclick = async () => {
-                dlBtn.disabled = true;
-                dlBtn.setText("Downloading...");
-                try {
-                    await this.catalogManager.updateWidget(entry, entry, this.settings.githubRepo, this.settings.branch);
-                    new Notice(`Downloaded ${entry.name}!`);
-                    await this.renderWidgetBlock(source, el, ctx, defaultWidgetId);
-                } catch (dlErr) {
-                    new Notice(`Download failed: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}`);
-                    dlBtn.disabled = false;
-                    dlBtn.setText("Retry Download");
-                }
-            };
-            return;
+            // Try auto-downloading the missing widget file on the fly first
+            try {
+                await this.catalogManager.updateWidget(entry, entry, this.settings.githubRepo, this.settings.branch);
+                code = await this.catalogManager.getWidgetCode(entry);
+            } catch (autoDlErr) {
+                const errDiv = el.createDiv({ cls: "hud-error-card" });
+                errDiv.createSpan({ text: `⚠️ HUD Block: Widget file '${entry.file}' is not installed locally. ` });
+                const dlBtn = errDiv.createEl("button", { text: "Download from GitHub", cls: "mod-cta" });
+                dlBtn.onclick = async () => {
+                    dlBtn.disabled = true;
+                    dlBtn.setText("Downloading...");
+                    try {
+                        await this.catalogManager.updateWidget(entry, entry, this.settings.githubRepo, this.settings.branch);
+                        new Notice(`Downloaded ${entry.name}!`);
+                        await this.renderWidgetBlock(source, el, ctx, defaultWidgetId);
+                    } catch (dlErr) {
+                        new Notice(`Download failed: ${dlErr instanceof Error ? dlErr.message : String(dlErr)}`);
+                        dlBtn.disabled = false;
+                        dlBtn.setText("Retry Download");
+                    }
+                };
+                return;
+            }
         }
 
         // Bridge Dataview API & Obsidian objects

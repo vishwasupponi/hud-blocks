@@ -195,6 +195,12 @@ export class CatalogManager {
         return null;
     }
 
+    async hasWidgetFile(entry: WidgetEntry): Promise<boolean> {
+        const adapter = this.plugin.app.vault.adapter;
+        const targetPath = normalizePath(`${this.pluginDir}/${entry.file}`);
+        return await adapter.exists(targetPath);
+    }
+
     async getWidgetCode(entry: WidgetEntry): Promise<string> {
         const adapter = this.plugin.app.vault.adapter;
         const targetPath = normalizePath(`${this.pluginDir}/${entry.file}`);

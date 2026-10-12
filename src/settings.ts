@@ -5,12 +5,23 @@ import { WidgetEntry } from "./types";
 export class HUDBlocksSettingTab extends PluginSettingTab {
     private localCatalog: WidgetEntry[] = [];
     private remoteCatalog: WidgetEntry[] | null = null;
+    private missingWidgets: Set<string> = new Set();
     private isChecking = false;
     private updatingWidgets: Set<string> = new Set();
     private statusText = "";
 
     constructor(app: App, private plugin: HUDBlocksPlugin) {
         super(app, plugin);
+    }
+
+    private async refreshMissingWidgets() {
+        this.missingWidgets.clear();
+        for (const w of this.localCatalog) {
+            const exists = await this.plugin.catalogManager.hasWidgetFile(w);
+            if (!exists) {
+                this.missingWidgets.add(w.id);
+            }
+        }
     }
 
     async display(): Promise<void> {
@@ -61,6 +72,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
 
         try {
             this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
+            await this.refreshMissingWidgets();
             this.remoteCatalog = await this.plugin.catalogManager.getRemoteCatalog(
                 this.plugin.settings.githubRepo,
                 this.plugin.settings.branch
@@ -69,7 +81,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             this.plugin.settings.lastCheckTime = Date.now();
             await this.plugin.saveSettings();
 
-            // Count available updates
+            // Count available updates or missing files
             const updatesCount = this.getAvailableUpdatesCount();
             if (updatesCount > 0) {
                 this.statusText = `⚡ ${updatesCount} update${updatesCount > 1 ? 's' : ''} available!`;
@@ -89,11 +101,12 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
     }
 
     private getAvailableUpdatesCount(): number {
-        if (!this.remoteCatalog) return 0;
+        const sourceCatalog = this.remoteCatalog || this.localCatalog;
         let count = 0;
-        for (const remote of this.remoteCatalog) {
-            const local = this.localCatalog.find(l => l.id === remote.id);
-            if (!local || this.isVersionGreater(remote.version, local.version)) {
+        for (const entry of sourceCatalog) {
+            const local = this.localCatalog.find(l => l.id === entry.id);
+            const isMissing = this.missingWidgets.has(entry.id);
+            if (!local || isMissing || (this.remoteCatalog && this.isVersionGreater(entry.version, local.version))) {
                 count++;
             }
         }
@@ -116,10 +129,11 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         if (this.localCatalog.length === 0) {
             this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
         }
+        await this.refreshMissingWidgets();
 
         const listWrap = containerEl.createDiv({ cls: "hud-widget-list" });
 
-        // Update All Button if multiple updates are available
+        // Update All Button if multiple updates or missing files are available
         const updatesCount = this.getAvailableUpdatesCount();
         if (updatesCount > 1) {
             const topRow = listWrap.createDiv({ cls: "hud-widget-bulk-bar" });
@@ -174,18 +188,23 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
 
             const remoteWidget = this.remoteCatalog?.find(r => r.id === localWidget.id);
             const isUpdating = this.updatingWidgets.has(localWidget.id);
+            const isMissing = this.missingWidgets.has(localWidget.id);
+            const hasNewerVersion = remoteWidget ? this.isVersionGreater(remoteWidget.version, localWidget.version) : false;
 
             if (isUpdating) {
                 const btn = actionCol.createEl("button", { text: "⏳ Updating...", cls: "hud-btn-busy" });
                 btn.disabled = true;
-            } else if (remoteWidget && this.isVersionGreater(remoteWidget.version, localWidget.version)) {
-                // Update Available (Option B: Granular Control!)
+            } else if (isMissing || hasNewerVersion) {
+                const targetEntry = remoteWidget || localWidget;
+                const btnLabel = (isMissing && !hasNewerVersion)
+                    ? `⬇️ Download v${targetEntry.version}`
+                    : `⬆️ Update to v${targetEntry.version}`;
                 const updateBtn = actionCol.createEl("button", {
-                    text: `⬆️ Update to v${remoteWidget.version}`,
+                    text: btnLabel,
                     cls: "mod-cta hud-btn-update"
                 });
                 updateBtn.onclick = async () => {
-                    await this.updateSingleWidget(localWidget, remoteWidget);
+                    await this.updateSingleWidget(localWidget, targetEntry);
                 };
             } else if (remoteWidget) {
                 actionCol.createSpan({ text: "✓ Up to date", cls: "hud-badge-ok" });
@@ -208,6 +227,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             );
             new Notice(`⚡ HUD Blocks: Updated "${remote.name}" to v${remote.version}!`);
             this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
+            await this.refreshMissingWidgets();
         } catch (err) {
             console.error(`[HUD Blocks] Failed to update widget ${local.id}:`, err);
             new Notice(`❌ Failed to update "${local.name}". Check console.`);
@@ -218,10 +238,11 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
     }
 
     private async updateAllWidgets() {
-        if (!this.remoteCatalog) return;
-        const outdated = this.remoteCatalog.filter(r => {
+        const sourceCatalog = this.remoteCatalog || this.localCatalog;
+        const outdated = sourceCatalog.filter(r => {
             const l = this.localCatalog.find(loc => loc.id === r.id);
-            return !l || this.isVersionGreater(r.version, l.version);
+            const isMissing = this.missingWidgets.has(r.id);
+            return !l || isMissing || (this.remoteCatalog !== null && this.isVersionGreater(r.version, l.version));
         });
 
         if (outdated.length === 0) return;
@@ -248,6 +269,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         }
 
         this.localCatalog = await this.plugin.catalogManager.getLocalCatalog();
+        await this.refreshMissingWidgets();
         new Notice(`✓ HUD Blocks: All widgets updated successfully!`);
         this.display();
     }
