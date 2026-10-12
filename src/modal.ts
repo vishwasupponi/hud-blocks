@@ -11,7 +11,7 @@ export class InsertWidgetModal extends FuzzySuggestModal<WidgetEntry> {
     }
 
     async onOpen() {
-        super.onOpen();
+        void super.onOpen();
         this.items = await this.plugin.catalogManager.getLocalCatalog();
         // Re-render suggestions once items are loaded
         this.inputEl.dispatchEvent(new Event("input"));

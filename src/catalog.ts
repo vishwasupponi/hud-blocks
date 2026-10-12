@@ -85,9 +85,9 @@ export class CatalogManager {
         try {
             if (await adapter.exists(this.localCatalogPath)) {
                 const data = await adapter.read(this.localCatalogPath);
-                const parsed = JSON.parse(data);
+                const parsed: unknown = JSON.parse(data);
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed;
+                    return parsed as WidgetEntry[];
                 }
             }
         } catch (e) {
@@ -115,9 +115,9 @@ export class CatalogManager {
         try {
             const resp = await requestUrl({ url, method: "GET" });
             if (resp.status >= 200 && resp.status < 300) {
-                const parsed = JSON.parse(resp.text);
+                const parsed: unknown = JSON.parse(resp.text);
                 if (Array.isArray(parsed)) {
-                    return parsed;
+                    return parsed as WidgetEntry[];
                 }
             }
             throw new Error(`HTTP ${resp.status}`);

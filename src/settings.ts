@@ -24,17 +24,12 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
         }
     }
 
-    async display(): Promise<void> {
+    display(): void {
         const { containerEl } = this;
         containerEl.empty();
         containerEl.addClass("hud-settings-container");
 
-        new Setting(containerEl)
-            .setName("General")
-            .setHeading();
-
         // GENERAL SETTINGS
-
         new Setting(containerEl)
             .setName("Auto-check for updates")
             .setDesc("Automatically check for widget updates when Obsidian starts.")
@@ -58,15 +53,15 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             cls: "mod-cta"
         });
         checkBtn.disabled = this.isChecking;
-        checkBtn.onclick = async () => {
-            await this.checkForUpdates();
+        checkBtn.onclick = () => {
+            void this.checkForUpdates();
         };
 
         const statusLabel = controlsRow.createSpan({ cls: "hud-settings-status" });
         statusLabel.setText(this.statusText || (this.plugin.settings.lastCheckTime ? `Last checked: ${new Date(this.plugin.settings.lastCheckTime).toLocaleTimeString()}` : "Click 'Check for Updates' to verify with GitHub."));
 
         // Render Widget List
-        await this.renderWidgetList(containerEl);
+        void this.renderWidgetList(containerEl);
     }
 
     private async checkForUpdates() {
@@ -145,8 +140,8 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
                 text: `⚡ Update All (${updatesCount} Widgets)`,
                 cls: "mod-cta hud-btn-update-all"
             });
-            updateAllBtn.onclick = async () => {
-                await this.updateAllWidgets();
+            updateAllBtn.onclick = () => {
+                void this.updateAllWidgets();
             };
         }
 
@@ -224,8 +219,8 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
                     text: `✨ Install v${widgetItem.version}`,
                     cls: "mod-cta hud-btn-update"
                 });
-                installBtn.onclick = async () => {
-                    await this.updateSingleWidget(localWidget || widgetItem, remoteWidget || widgetItem);
+                installBtn.onclick = () => {
+                    void this.updateSingleWidget(localWidget || widgetItem, remoteWidget || widgetItem);
                 };
             } else if (isMissing || hasNewerVersion) {
                 const targetEntry = remoteWidget || currentEntry;
@@ -236,8 +231,8 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
                     text: btnLabel,
                     cls: "mod-cta hud-btn-update"
                 });
-                updateBtn.onclick = async () => {
-                    await this.updateSingleWidget(currentEntry, targetEntry);
+                updateBtn.onclick = () => {
+                    void this.updateSingleWidget(currentEntry, targetEntry);
                 };
             } else if (remoteWidget) {
                 actionCol.createSpan({ text: "✓ Up to date", cls: "hud-badge-ok" });

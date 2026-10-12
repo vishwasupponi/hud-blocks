@@ -48,6 +48,10 @@ interface DataviewBridge {
     pages: (query?: string) => DataviewDataArray<DataviewPage>;
 }
 
+type AsyncFunctionConstructor = new (
+    ...args: string[]
+) => (app: App, dv: DataviewBridge, notice: typeof Notice, mom: typeof moment, container: HTMLElement) => Promise<void>;
+
 export default class HUDBlocksPlugin extends Plugin {
     settings: HUDBlocksSettings = DEFAULT_SETTINGS;
     catalogManager: CatalogManager = new CatalogManager(this);
@@ -69,7 +73,7 @@ export default class HUDBlocksPlugin extends Plugin {
 
         // Register Primary Codeblock Processor: ```hud
         this.registerMarkdownCodeBlockProcessor("hud", (source, el, ctx) => {
-            this.renderWidgetBlock(source, el, ctx);
+            void this.renderWidgetBlock(source, el, ctx);
         });
 
         // Register Direct Convenience Processors
@@ -87,18 +91,21 @@ export default class HUDBlocksPlugin extends Plugin {
         for (const [blockTag, widgetId] of Object.entries(directBlockProcessors)) {
             this.registerMarkdownCodeBlockProcessor(blockTag, (source, el, ctx) => {
                 const effectiveSource = source.trim() ? source : `widget: ${widgetId}`;
-                this.renderWidgetBlock(effectiveSource, el, ctx, widgetId);
+                void this.renderWidgetBlock(effectiveSource, el, ctx, widgetId);
             });
         }
 
         // Ensure local widget files exist and optionally check updates on startup
         this.app.workspace.onLayoutReady(() => {
-            this.quietCheckUpdates();
+            void this.quietCheckUpdates();
         });
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const loaded: unknown = await this.loadData();
+        if (loaded && typeof loaded === "object") {
+            this.settings = Object.assign({}, DEFAULT_SETTINGS, loaded as Partial<HUDBlocksSettings>);
+        }
     }
 
     async saveSettings() {
@@ -314,8 +321,8 @@ export default class HUDBlocksPlugin extends Plugin {
                                 path: f.path,
                                 name: f.basename,
                                 folder: parentFolder,
-                                mtime: f.stat?.mtime ? moment(f.stat.mtime) : null,
-                                ctime: f.stat?.ctime ? moment(f.stat.ctime) : null,
+                                mtime: f.stat?.mtime ? (moment(f.stat.mtime) as unknown) : null,
+                                ctime: f.stat?.ctime ? (moment(f.stat.ctime) as unknown) : null,
                                 link: `[[${f.path}]]`
                             }
                         };
@@ -326,7 +333,11 @@ export default class HUDBlocksPlugin extends Plugin {
 
         // Execute widget code inside isolated function
         try {
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+            const AsyncFunction = (
+                Object.getPrototypeOf(async () => {
+                    /* prototype probe */
+                }) as unknown as { constructor: AsyncFunctionConstructor }
+            ).constructor;
             const runner = new AsyncFunction("app", "dv", "Notice", "moment", "container", code);
             await runner(this.app, dvBridge, Notice, moment, el);
         } catch (runErr) {
