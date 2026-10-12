@@ -1,7 +1,7 @@
 {
   "id": "hud-blocks",
   "name": "HUD Widget Blocks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "0.15.0",
   "description": "Modular and customisable sci-fi HUD widgets and dashboards for your notes.",
   "author": "Vishwas Upponi",
