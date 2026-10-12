@@ -1,8 +1,52 @@
-import { MarkdownPostProcessorContext, Notice, Plugin } from "obsidian";
+import { App, MarkdownPostProcessorContext, Notice, Plugin, TFile, moment } from "obsidian";
 import { CatalogManager } from "./catalog";
 import { InsertWidgetModal } from "./modal";
 import { HUDBlocksSettingTab } from "./settings";
 import { DEFAULT_SETTINGS, HUDBlocksSettings } from "./types";
+
+interface DataviewPage {
+    file: {
+        path: string;
+        name: string;
+        folder?: string;
+        frontmatter?: Record<string, unknown>;
+        stat?: { ctime?: number; mtime?: number; size?: number };
+        ctime?: unknown;
+        mtime?: unknown;
+        link?: string;
+    };
+    [key: string]: unknown;
+}
+
+interface DataviewDataArray<T> extends Array<T> {
+    values: T[];
+    where: (fn: (p: T) => boolean) => DataviewDataArray<T>;
+    sort: (keyFn: (p: T) => unknown, dir?: string) => DataviewDataArray<T>;
+    limit: (n: number) => DataviewDataArray<T>;
+    array: () => T[];
+}
+
+interface DataviewPluginApi {
+    page?: (path: string) => DataviewPage | null;
+    pages?: (query?: string) => DataviewDataArray<DataviewPage>;
+}
+
+interface AppWithCommunityPlugins extends App {
+    plugins?: {
+        plugins?: {
+            dataview?: {
+                api?: DataviewPluginApi;
+            };
+        };
+    };
+}
+
+interface DataviewBridge {
+    container: HTMLElement;
+    current: () => DataviewPage | { file: { path: string; name: string } };
+    page: (path: string) => DataviewPage | null;
+    pages: (query?: string) => DataviewDataArray<DataviewPage>;
+}
 
 export default class HUDBlocksPlugin extends Plugin {
     settings: HUDBlocksSettings = DEFAULT_SETTINGS;
@@ -71,7 +115,7 @@ export default class HUDBlocksPlugin extends Plugin {
                 if (!exists) {
                     try {
                         await this.catalogManager.updateWidget(w, w, this.settings.githubRepo, this.settings.branch);
-                    } catch (dlErr) {
+                    } catch {
                         // Ignore individual background download errors if offline
                     }
                 }
@@ -94,7 +138,7 @@ export default class HUDBlocksPlugin extends Plugin {
             if (updateCount > 0) {
                 new Notice(`⚡ HUD Blocks: ${updateCount} widget update${updateCount > 1 ? 's' : ''} available! Check Settings.`);
             }
-        } catch(e) {
+        } catch {
             // Silently fail on background auto-check
         }
     }
@@ -154,12 +198,12 @@ export default class HUDBlocksPlugin extends Plugin {
         let code = "";
         try {
             code = await this.catalogManager.getWidgetCode(entry);
-        } catch (e) {
+        } catch {
             // Try auto-downloading the missing widget file on the fly first
             try {
                 await this.catalogManager.updateWidget(entry, entry, this.settings.githubRepo, this.settings.branch);
                 code = await this.catalogManager.getWidgetCode(entry);
-            } catch (autoDlErr) {
+            } catch {
                 const errDiv = el.createDiv({ cls: "hud-error-card" });
                 errDiv.createSpan({ text: `⚠️ HUD Block: Widget file '${entry.file}' is not installed locally. ` });
                 const dlBtn = errDiv.createEl("button", { text: "Download from GitHub", cls: "mod-cta" });
@@ -181,18 +225,20 @@ export default class HUDBlocksPlugin extends Plugin {
         }
 
         // Bridge Dataview API & Obsidian objects
-        const dvApi = (this.app as any).plugins?.plugins?.dataview?.api;
-        const currentFile = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+        const appWithPlugins = this.app as AppWithCommunityPlugins;
+        const dvApi = appWithPlugins.plugins?.plugins?.dataview?.api;
         const effectivePath = explicitProfile ? explicitProfile : ctx.sourcePath;
 
-        const dvBridge: any = {
+        const dvBridge: DataviewBridge = {
             container: el,
             current: () => {
                 if (!explicitProfile && dvApi && dvApi.page) {
                     try {
                         const p = dvApi.page(ctx.sourcePath);
                         if (p) return p;
-                    } catch(e) {}
+                    } catch {
+                        /* Dataview unavailable or page error; fallback to native */
+                    }
                 }
                 return {
                     file: {
@@ -206,10 +252,12 @@ export default class HUDBlocksPlugin extends Plugin {
                     try {
                         const p = dvApi.page(path);
                         if (p) return p;
-                    } catch(e) {}
+                    } catch {
+                        /* Dataview unavailable or page error; fallback to native */
+                    }
                 }
-                const f = this.app.vault.getAbstractFileByPath(path) as any;
-                if (!f) return null;
+                const f = this.app.vault.getAbstractFileByPath(path);
+                if (!f || !(f instanceof TFile)) return null;
                 const cache = this.app.metadataCache.getFileCache(f);
                 const fm = (cache && cache.frontmatter) ? { ...cache.frontmatter } : {};
                 return {
@@ -227,15 +275,15 @@ export default class HUDBlocksPlugin extends Plugin {
                 if (dvApi && dvApi.pages) {
                     try {
                         return dvApi.pages(query);
-                    } catch(e) {
+                    } catch (e) {
                         console.error("[HUD Blocks] Dataview query error:", e);
                     }
                 }
-                const wrapDataArray = (arr: any[]): any => {
-                    const wrapped: any = [...arr];
+                const wrapDataArray = (arr: DataviewPage[]): DataviewDataArray<DataviewPage> => {
+                    const wrapped = [...arr] as DataviewDataArray<DataviewPage>;
                     wrapped.values = wrapped;
-                    wrapped.where = (fn: (p: any) => boolean) => wrapDataArray(wrapped.filter(fn));
-                    wrapped.sort = (keyFn: (p: any) => any, dir: string = "asc") => {
+                    wrapped.where = (fn: (p: DataviewPage) => boolean) => wrapDataArray(wrapped.filter(fn));
+                    wrapped.sort = (keyFn: (p: DataviewPage) => unknown, dir: string = "asc") => {
                         const copy = [...wrapped];
                         copy.sort((a, b) => {
                             const va = keyFn(a);
@@ -254,7 +302,7 @@ export default class HUDBlocksPlugin extends Plugin {
                 };
                 const cleanQ = (query || "").trim().replace(/^["']|["']$/g, "").replace(/^\/+|\/+$/g, "");
                 const mdFiles = this.app.vault.getMarkdownFiles();
-                const matched = mdFiles
+                const matched: DataviewPage[] = mdFiles
                     .filter(f => !cleanQ || f.path.startsWith(cleanQ + "/") || f.path === cleanQ + ".md" || (f.parent && f.parent.path === cleanQ))
                     .map(f => {
                         const cache = this.app.metadataCache.getFileCache(f);
@@ -266,8 +314,8 @@ export default class HUDBlocksPlugin extends Plugin {
                                 path: f.path,
                                 name: f.basename,
                                 folder: parentFolder,
-                                mtime: (f as any).stat?.mtime ? (window as any).moment((f as any).stat.mtime) : null,
-                                ctime: (f as any).stat?.ctime ? (window as any).moment((f as any).stat.ctime) : null,
+                                mtime: f.stat?.mtime ? moment(f.stat.mtime) : null,
+                                ctime: f.stat?.ctime ? moment(f.stat.ctime) : null,
                                 link: `[[${f.path}]]`
                             }
                         };
@@ -280,7 +328,7 @@ export default class HUDBlocksPlugin extends Plugin {
         try {
             const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
             const runner = new AsyncFunction("app", "dv", "Notice", "moment", "container", code);
-            await runner(this.app, dvBridge, Notice, (window as any).moment, el);
+            await runner(this.app, dvBridge, Notice, moment, el);
         } catch (runErr) {
             console.error(`[HUD Blocks] Error running widget "${entry.name}":`, runErr);
             const errCard = el.createDiv({ cls: "hud-error-card" });

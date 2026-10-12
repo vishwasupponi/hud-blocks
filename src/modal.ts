@@ -1,4 +1,4 @@
-import { App, Editor, FuzzyMatch, FuzzySuggestModal } from "obsidian";
+import { App, Editor, FuzzyMatch, FuzzySuggestModal, MarkdownView } from "obsidian";
 import { WidgetEntry } from "./types";
 import type HUDBlocksPlugin from "./main";
 
@@ -37,15 +37,14 @@ export class InsertWidgetModal extends FuzzySuggestModal<WidgetEntry> {
         desc.setText(item.description);
     }
 
-    onChooseItem(item: WidgetEntry, evt: MouseEvent | KeyboardEvent) {
+    onChooseItem(item: WidgetEntry, _evt: MouseEvent | KeyboardEvent) {
         const snippet = `\`\`\`hud\nwidget: ${item.id}\n\`\`\`\n`;
         if (this.editor) {
             this.editor.replaceSelection(snippet);
         } else {
-            const activeView = this.app.workspace.getActiveViewOfType(this.app.workspace.activeEditor ? (this.app.workspace.activeEditor as any).constructor : null as any);
-            const editor = (activeView as any)?.editor;
-            if (editor) {
-                editor.replaceSelection(snippet);
+            const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+            if (activeView && activeView.editor) {
+                activeView.editor.replaceSelection(snippet);
             }
         }
     }

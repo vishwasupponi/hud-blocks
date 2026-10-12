@@ -1,4 +1,4 @@
-import { normalizePath, Notice, requestUrl } from "obsidian";
+import { normalizePath, requestUrl } from "obsidian";
 import type HUDBlocksPlugin from "./main";
 import { WidgetEntry } from "./types";
 

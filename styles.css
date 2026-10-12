@@ -105,10 +105,10 @@
     margin-bottom: 6px;
 }
 
-.hud-btn-update-all {
-    background: #38bdf8 !important;
-    color: #000 !important;
-    font-weight: 700 !important;
+.hud-settings-container button.hud-btn-update-all {
+    background: #38bdf8;
+    color: #000;
+    font-weight: 700;
 }
 
 .hud-widget-row {
@@ -170,11 +170,11 @@
     min-width: 130px;
 }
 
-.hud-btn-update {
-    background: #10b981 !important;
-    color: #000 !important;
-    font-weight: 700 !important;
-    font-size: 12px !important;
+.hud-settings-container button.hud-btn-update {
+    background: #10b981;
+    color: #000;
+    font-weight: 700;
+    font-size: 12px;
 }
 
 .hud-badge-ok {
