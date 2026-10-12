@@ -146,22 +146,44 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             };
         }
 
-        for (const localWidget of this.localCatalog) {
+        // Merge remote and local catalog so newly released remote widgets appear in the list
+        const displayCatalogMap = new Map<string, { entry: WidgetEntry, isNew: boolean }>();
+        if (this.remoteCatalog) {
+            for (const r of this.remoteCatalog) {
+                const isNew = !this.localCatalog.some(l => l.id === r.id);
+                displayCatalogMap.set(r.id, { entry: r, isNew });
+            }
+        }
+        for (const l of this.localCatalog) {
+            if (!displayCatalogMap.has(l.id)) {
+                displayCatalogMap.set(l.id, { entry: l, isNew: false });
+            }
+        }
+
+        for (const { entry: widgetItem, isNew } of displayCatalogMap.values()) {
+            const localWidget = this.localCatalog.find(l => l.id === widgetItem.id);
+            const remoteWidget = this.remoteCatalog?.find(r => r.id === widgetItem.id);
+            const currentEntry = localWidget || widgetItem;
+
             const row = listWrap.createDiv({ cls: "hud-widget-row" });
 
             const infoCol = row.createDiv({ cls: "hud-widget-info" });
             const titleRow = infoCol.createDiv({ cls: "hud-widget-title-row" });
-            titleRow.createSpan({ text: localWidget.name, cls: "hud-widget-name" });
-            titleRow.createSpan({ text: `v${localWidget.version}`, cls: "hud-widget-ver-badge" });
+            titleRow.createSpan({ text: widgetItem.name, cls: "hud-widget-name" });
+            if (isNew) {
+                titleRow.createSpan({ text: `NEW v${widgetItem.version}`, cls: "hud-widget-ver-badge hud-badge-ok" });
+            } else {
+                titleRow.createSpan({ text: `v${currentEntry.version}`, cls: "hud-widget-ver-badge" });
+            }
 
             const desc = infoCol.createDiv({ cls: "hud-widget-desc" });
-            desc.setText(localWidget.description);
+            desc.setText(widgetItem.description);
 
             // Codeblock Aliases & Direct Tag
             const aliasWrap = infoCol.createDiv({ cls: "hud-widget-alias-row" });
             aliasWrap.createSpan({ text: "Codeblock aliases: ", cls: "hud-alias-label" });
 
-            const allAliases = [localWidget.id, ...(localWidget.aliases || [])];
+            const allAliases = [widgetItem.id, ...(widgetItem.aliases || [])];
             allAliases.forEach((alias, idx) => {
                 const codeEl = aliasWrap.createEl("code", { text: alias, cls: "hud-alias-code" });
                 if (idx === 0) codeEl.addClass("hud-alias-primary");
@@ -177,7 +199,7 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
                 "activity-timeline": "hud-timeline",
                 "completion-trends": "hud-completion-trends"
             };
-            const directTag = directTagMap[localWidget.id];
+            const directTag = directTagMap[widgetItem.id];
             if (directTag) {
                 aliasWrap.createSpan({ text: " • Direct tag: ", cls: "hud-alias-label" });
                 aliasWrap.createEl("code", { text: `\`\`\`${directTag}`, cls: "hud-alias-code hud-alias-direct" });
@@ -186,16 +208,23 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
             // Action / Status Column
             const actionCol = row.createDiv({ cls: "hud-widget-action" });
 
-            const remoteWidget = this.remoteCatalog?.find(r => r.id === localWidget.id);
-            const isUpdating = this.updatingWidgets.has(localWidget.id);
-            const isMissing = this.missingWidgets.has(localWidget.id);
-            const hasNewerVersion = remoteWidget ? this.isVersionGreater(remoteWidget.version, localWidget.version) : false;
+            const isUpdating = this.updatingWidgets.has(widgetItem.id);
+            const isMissing = !localWidget || this.missingWidgets.has(widgetItem.id);
+            const hasNewerVersion = (localWidget && remoteWidget) ? this.isVersionGreater(remoteWidget.version, localWidget.version) : false;
 
             if (isUpdating) {
                 const btn = actionCol.createEl("button", { text: "⏳ Updating...", cls: "hud-btn-busy" });
                 btn.disabled = true;
+            } else if (isNew) {
+                const installBtn = actionCol.createEl("button", {
+                    text: `✨ Install v${widgetItem.version}`,
+                    cls: "mod-cta hud-btn-update"
+                });
+                installBtn.onclick = async () => {
+                    await this.updateSingleWidget(localWidget || widgetItem, remoteWidget || widgetItem);
+                };
             } else if (isMissing || hasNewerVersion) {
-                const targetEntry = remoteWidget || localWidget;
+                const targetEntry = remoteWidget || currentEntry;
                 const btnLabel = (isMissing && !hasNewerVersion)
                     ? `⬇️ Download v${targetEntry.version}`
                     : `⬆️ Update to v${targetEntry.version}`;
@@ -204,12 +233,12 @@ export class HUDBlocksSettingTab extends PluginSettingTab {
                     cls: "mod-cta hud-btn-update"
                 });
                 updateBtn.onclick = async () => {
-                    await this.updateSingleWidget(localWidget, targetEntry);
+                    await this.updateSingleWidget(currentEntry, targetEntry);
                 };
             } else if (remoteWidget) {
                 actionCol.createSpan({ text: "✓ Up to date", cls: "hud-badge-ok" });
             } else {
-                actionCol.createSpan({ text: `v${localWidget.version}`, cls: "hud-badge-neutral" });
+                actionCol.createSpan({ text: `v${currentEntry.version}`, cls: "hud-badge-neutral" });
             }
         }
     }
